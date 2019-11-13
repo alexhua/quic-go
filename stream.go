@@ -82,7 +82,15 @@ type stream struct {
 	sendStreamCompleted    bool
 
 	version protocol.VersionNumber
+
+	laddr net.Addr
+	raddr net.Addr
 }
+
+func (s *stream) LocalAddr() net.Addr  { return s.laddr }
+func (s *stream) RemoteAddr() net.Addr { return s.raddr }
+
+var _ net.Conn = &stream{}
 
 var _ Stream = &stream{}
 
@@ -101,8 +109,9 @@ func newStream(streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
+	laddr, raddr net.Addr,
 ) *stream {
-	s := &stream{sender: sender, version: version}
+	s := &stream{sender: sender, version: version, laddr: laddr, raddr: raddr}
 	senderForSendStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {
@@ -112,7 +121,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version)
+	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version, laddr, raddr)
 	senderForReceiveStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {
@@ -122,7 +131,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.receiveStream = *newReceiveStream(streamID, senderForReceiveStream, flowController, version)
+	s.receiveStream = *newReceiveStream(streamID, senderForReceiveStream, flowController, version, laddr, raddr)
 	return s
 }
 
