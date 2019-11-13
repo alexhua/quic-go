@@ -52,6 +52,7 @@ type streamsMap struct {
 	maxIncomingUniStreams  uint64
 
 	sender            streamSender
+	laddr, raddr      net.Addr
 	newFlowController func(protocol.StreamID) flowcontrol.StreamFlowController
 
 	mutex               sync.Mutex
@@ -71,6 +72,7 @@ func newStreamsMap(
 	maxIncomingUniStreams uint64,
 	perspective protocol.Perspective,
 	version protocol.VersionNumber,
+	laddr, raddr net.Addr,
 ) streamManager {
 	m := &streamsMap{
 		perspective:            perspective,
@@ -88,14 +90,14 @@ func (m *streamsMap) initMaps() {
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective)
-			return newStream(id, m.sender, m.newFlowController(id), m.version)
+			return newStream(id, m.sender, m.newFlowController(id), m.version, m.laddr, m.raddr)
 		},
 		m.sender.queueControlFrame,
 	)
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, m.perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), m.version)
+			return newStream(id, m.sender, m.newFlowController(id), m.version, m.laddr, m.raddr)
 		},
 		m.maxIncomingBidiStreams,
 		m.sender.queueControlFrame,
@@ -103,14 +105,14 @@ func (m *streamsMap) initMaps() {
 	m.outgoingUniStreams = newOutgoingUniStreamsMap(
 		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id), m.version)
+			return newSendStream(id, m.sender, m.newFlowController(id), m.version, m.laddr, m.raddr)
 		},
 		m.sender.queueControlFrame,
 	)
 	m.incomingUniStreams = newIncomingUniStreamsMap(
 		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, m.perspective.Opposite())
-			return newReceiveStream(id, m.sender, m.newFlowController(id), m.version)
+			return newReceiveStream(id, m.sender, m.newFlowController(id), m.version, m.laddr, m.raddr)
 		},
 		m.maxIncomingUniStreams,
 		m.sender.queueControlFrame,
